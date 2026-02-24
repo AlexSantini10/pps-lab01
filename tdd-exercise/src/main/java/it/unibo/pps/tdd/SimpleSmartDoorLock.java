@@ -2,25 +2,35 @@ package it.unibo.pps.tdd;
 
 public class SimpleSmartDoorLock implements SmartDoorLock {
 
-    private int pin;                // The current PIN for the door lock
-    private boolean locked;         // Indicates whether the door is currently locked
-    private int failedAttempts;     // Counter for failed unlock attempts
-    private boolean blocked;        // Indicates whether the lock is in a blocked state
+    private int pin;                    // The current PIN for the door lock
+    private boolean locked;             // Indicates whether the door is currently locked
+    private int failedAttempts;         // Counter for failed unlock attempts
+    private boolean blocked;            // Indicates whether the lock is in a blocked state
     private final int maxAttempts = 3;  // Maximum allowed failed attempts before blocking
 
-    SimpleSmartDoorLock(){
+    public SimpleSmartDoorLock() {
         this.reset();
     }
 
     @Override
     public void setPin(int pin) {
-        if (this.isLocked() || this.isBlocked()) {
-            return;
+        if (this.isLocked()) {
+            throw new IllegalStateException(
+                    "Cannot set PIN while the door is locked."
+            );
+        }
+
+        if (this.isBlocked()) {
+            throw new IllegalStateException(
+                    "Cannot set PIN while the lock is blocked."
+            );
         }
 
         // Check if the provided PIN is a valid 4-digit number
         if (pin < 1000 || pin > 9999) {
-            return;
+            throw new IllegalArgumentException(
+                    "PIN must be a 4-digit number between 1000 and 9999."
+            );
         }
 
         this.pin = pin;
@@ -28,27 +38,51 @@ public class SimpleSmartDoorLock implements SmartDoorLock {
 
     @Override
     public void unlock(int pin) {
-        if (this.isBlocked() || !this.isPinSet() || !this.isLocked()) {
-            return;
+        if (this.isBlocked()) {
+            throw new IllegalStateException(
+                    "Cannot unlock: the lock is blocked."
+            );
         }
 
+        if (!this.isPinSet()) {
+            throw new IllegalStateException(
+                    "Cannot unlock: PIN has not been set."
+            );
+        }
+
+        if (!this.isLocked()) {
+            throw new IllegalStateException(
+                    "Cannot unlock: the door is already unlocked."
+            );
+        }
 
         if (pin == this.pin) {
             this.locked = false;
-            this.failedAttempts = 0; // Reset failed attempts on successful unlock
+            this.failedAttempts = 0;     // Reset failed attempts on success
         } else {
-            handleFailedAttempt();
+            this.failedAttempts++;
+            if (this.failedAttempts >= this.getMaxAttempts()) {
+                this.blocked = true;
+            }
         }
     }
 
     private boolean isPinSet() {
-        return this.pin != 0; // Assuming 0 is an invalid PIN and indicates that the PIN is not set
+        return this.pin != 0;   // 0 means no PIN set
     }
 
     @Override
     public void lock() {
         if (!isPinSet()) {
-            throw new IllegalStateException("Cannot lock the door without setting a PIN.");
+            throw new IllegalStateException(
+                    "Cannot lock the door without setting a PIN."
+            );
+        }
+
+        if (this.isBlocked()) {
+            throw new IllegalStateException(
+                    "Cannot lock: the lock is blocked."
+            );
         }
 
         this.locked = true;
@@ -57,12 +91,6 @@ public class SimpleSmartDoorLock implements SmartDoorLock {
     @Override
     public boolean isLocked() {
         return locked;
-    }
-
-    private void blockIfAttemptsExceeded() {
-        if (this.failedAttempts >= this.getMaxAttempts()) {
-            this.blocked = true;
-        }
     }
 
     @Override
@@ -75,11 +103,6 @@ public class SimpleSmartDoorLock implements SmartDoorLock {
         return maxAttempts;
     }
 
-    private void handleFailedAttempt() {
-        this.failedAttempts++;
-        blockIfAttemptsExceeded();
-    }
-
     @Override
     public int getFailedAttempts() {
         return failedAttempts;
@@ -87,9 +110,9 @@ public class SimpleSmartDoorLock implements SmartDoorLock {
 
     @Override
     public void reset() {
-        this.pin = 0; // Reset PIN to default (indicating no PIN set)
-        this.failedAttempts = 0; // Reset failed attempts
-        this.blocked = false; // Unblock the door after reset
-        this.locked = false; // Unlock the door after reset
+        this.pin = 0;               // No PIN set
+        this.failedAttempts = 0;    // Reset failed attempts
+        this.blocked = false;       // Remove blocked state
+        this.locked = false;        // Initial state is open
     }
 }
